@@ -2,41 +2,25 @@
 var queryUrl = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_month.geojson";
 
 // Perform a GET request to the query URL
-d3.json("static/data/4.5_month.geojson").then(function(data) {
-  // Once we get a response, send the data.features object to the earthquakeData variable
-  console.log(data.features);
-  createFeatures(data.features);
+d3.json(queryUrl).then(function(usgsData) {
+  d3.json("static/data/PB2002_boundaries.json").then(function(tectonic2002){
+      // Once we get a response, send the data.features object to the earthquakeData variable
+      console.log(usgsData.features);
+      console.log(tectonic2002.features);  
+      createFeatures(usgsData.features, tectonic2002.features);
+  })
 });
 
-function createFeatures(earthquakeData) {
+function createFeatures(earthquakeData, platesData) {
   // parse out the useful information
-  const earthlatlog=earthquakeData.map((a,i)=>[+a.geometry.coordinates[1],+a.geometry.coordinates[0]]);
-  const earthDepth=earthquakeData.map((a,i)=>a.geometry.coordinates[2]);
-  const earthquakePlace=earthquakeData.map((a,i)=>a.properties.place);
-  const earthquakeMag=earthquakeData.map((a,i)=>parseFloat(a.properties.mag));
-  console.log(earthquakeMag);
-  earthquakeMarkers=[];
+  const earthlatlog=earthquakeData.map(a=>[+a.geometry.coordinates[1],+a.geometry.coordinates[0]]);
+  const earthDepth=earthquakeData.map(a=>a.geometry.coordinates[2]);
+  const earthquakePlace=earthquakeData.map(a=>a.properties.place);
+  const earthquakeMag=earthquakeData.map(a=>parseFloat(a.properties.mag));
+  const plateLines=platesData.map(a=>a.geometry);
+  const earthquakeMarkers=[];
   // Loop through the earthquakeData array
   for (var i = 0; i < earthquakeData.length; i++) {
-
-    // // Conditionals for earthquakeData points
-    // var circleColor = "";
-    // if (earthDepth[i] > 90) {
-    //   circleColor = "#ff0000";
-    // } else if (earthDepth[i] > 80) {
-    //   circleColor = "#ff8700";
-    // } else if (earthDepth[i] > 70) {
-    //   circleColor = "#ffd300";
-    // } else if (earthDepth[i] > 50) {
-    //   circleColor = "#deff0a";
-    // } else if (earthDepth[i] > 30) {
-    //   circleColor = "#a1ff0a";
-    // } else if (earthDepth[i] > 10) {
-    //   circleColor = "#0aff99";
-    // } else {
-    //   circleColor = "#27c0c0";
-    // }
-
     // Add circles to map
     earthquakeMarkers.push(
         L.circle(earthlatlog[i], {
@@ -48,12 +32,11 @@ function createFeatures(earthquakeData) {
       }).bindPopup("<h3> Location: " + earthquakePlace[i] + "</h3> <h3> Magnitude: " + earthquakeMag[i] + "</h3> <h3> Depth: " + earthDepth[i] +"km </h3>")
     )
   }
-
   var earthquakes=L.layerGroup(earthquakeMarkers);
-  createMap(earthquakes);
+  createMap(earthquakes,plateLines);
 }
 
-function createMap (earthquakes) {
+function createMap (earthquakes,plateLines) {
     // Define outdoors and darkmap layers
     var outdoormap = L.tileLayer("https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}", {
       attribution: "© <a href='https://www.mapbox.com/about/maps/'>Mapbox</a> © <a href='http://www.openstreetmap.org/copyright'>OpenStreetMap</a> <strong><a href='https://www.mapbox.com/map-feedback/' target='_blank'>Improve this map</a></strong>",
@@ -78,6 +61,16 @@ function createMap (earthquakes) {
       accessToken: API_KEY
     });
 
+    var myStyle = {
+      "color": "darkred",
+      "weight": 3,
+      "opacity": 0.8
+    };
+  
+    var tectonicLines=L.geoJSON(plateLines, {
+        style: myStyle
+    });
+
     // Define a baseMaps object to hold our base layers
     var baseMaps = {
       "Satellite": satellitemap,
@@ -87,12 +80,13 @@ function createMap (earthquakes) {
 
     // Create overlay object to hold our overlay layer
     var overlayMaps = {
-      "Earthquakes": earthquakes
+      "Earthquakes": earthquakes,
+      "Tectonic Plates":tectonicLines
     };
 
     // Create our map, giving it the streetmap and earthquakes layers to display on load
     var myMap = L.map("mapid", {
-      center: [0, 40],
+      center: [0, -90],
       zoom: 3,
       layers: [lightmap,earthquakes]
     });
@@ -111,7 +105,7 @@ function createMap (earthquakes) {
             grades = [-10, 10, 30, 50, 70, 90],
             labels = [];
 
-        // loop through our density intervals and generate a label with a colored square for each interval
+        // loop through depth intervals and generate a label with a colored square for each interval
         for (var i = 0; i < grades.length; i++) {
             div.innerHTML +=
                 '<i style="background:' + getColor(grades[i] + 1) + '"></i> ' +
