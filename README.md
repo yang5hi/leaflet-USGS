@@ -1,4 +1,4 @@
-# Visualizing Data with Leaflet
+# Visualizing Earthquake Data with Leaflet
 
 ![screenshot](Images/Advanced.png)
 
